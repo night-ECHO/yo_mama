@@ -1,48 +1,58 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE = "night-echo/webapp:latest" // đổi tên theo project của bạn
-    }
-
     stages {
-        stage('Checkout') {
+        stage('Clone') {
             steps {
-                git 'https://github.com/night-ECHO/yo_mama.git' // hoặc repo mới nếu đã đổi
+                echo 'Cloning source code'
+                git branch: 'main', url: 'https://github.com/huudqtmu/projectnet.git'
+            }
+        }
+
+        stage('Restore Packages') {
+            steps {
+                echo 'Restoring packages'
+                bat 'dotnet restore'
             }
         }
 
         stage('Build') {
             steps {
-                sh 'dotnet restore'
-                sh 'dotnet build --configuration Release'
+                echo 'Building project (Release mode)'
+                bat 'dotnet build --configuration Release'
             }
         }
 
-        stage('Test') {
+        stage('Run Tests') {
             steps {
-                sh 'dotnet test --no-build --verbosity normal'
+                echo 'Running tests...'
+                bat 'dotnet test --no-build --verbosity normal'
             }
         }
 
-        stage('Publish') {
+        stage('Publish to folder') {
             steps {
-                sh 'dotnet publish -c Release -o out'
+                echo 'Publishing to ./publish directory'
+                bat 'dotnet publish -c Release -o ./publish'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Copy to running folder') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                echo 'Copying published files to C:\\wwwroot\\myproject'
+                bat 'xcopy "%WORKSPACE%\\publish" /E /Y /I /R "C:\\wwwroot\\myproject"'
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Deploy to IIS') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-                    sh 'docker push $DOCKER_IMAGE'
-                }
+                echo 'Deploying to IIS'
+                powershell '''
+                    Import-Module WebAdministration
+                    if (-not (Test-Path IIS:\\Sites\\MySite)) {
+                        New-Website -Name "MySite" -Port 81 -PhysicalPath "C:\\test1-netcore"
+                    }
+                '''
             }
         }
     }
