@@ -1,49 +1,49 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_IMAGE = "night-echo/webapp:latest" // đổi tên theo project của bạn
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                echo 'Cloning repository...'
-                git 'https://github.com/your-username/yo_mama.git'
-            }
-        }
-
-        stage('Restore Packages') {
-            steps {
-                echo 'Restoring packages...'
-                bat 'dotnet restore WebApplication1/WebApplication1.csproj'
+                git 'https://github.com/night-ECHO/yo_mama.git' // hoặc repo mới nếu đã đổi
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Building project...'
-                bat 'dotnet build WebApplication1/WebApplication1.csproj --configuration Release'
+                sh 'dotnet restore'
+                sh 'dotnet build --configuration Release'
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running tests...'
-                bat 'dotnet test WebApplication1/WebApplication1.csproj --no-build --verbosity normal'
+                sh 'dotnet test --no-build --verbosity normal'
             }
         }
 
         stage('Publish') {
             steps {
-                echo 'Publishing project...'
-                bat 'dotnet publish WebApplication1/WebApplication1.csproj --configuration Release --output ./publish'
+                sh 'dotnet publish -c Release -o out'
             }
         }
-    }
 
-    post {
-        success {
-            echo '✅ Build and publish succeeded!'
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
         }
-        failure {
-            echo '❌ Build failed.'
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    sh 'docker push $DOCKER_IMAGE'
+                }
+            }
         }
     }
 }
