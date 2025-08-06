@@ -2,67 +2,48 @@ pipeline {
     agent any
 
     stages {
-
-        stage('Clone') {
+        stage('Checkout') {
             steps {
-                echo 'Cloning source code'
-                git branch: 'main', url: 'https://github.com/night-ECHO/yo_mama.git'
+                echo 'Cloning repository...'
+                git 'https://github.com/your-username/yo_mama.git'
             }
         }
 
         stage('Restore Packages') {
             steps {
                 echo 'Restoring packages...'
-                bat 'dotnet restore'
+                bat 'dotnet restore WebApplication1/WebApplication1.csproj'
             }
         }
 
         stage('Build') {
             steps {
                 echo 'Building project...'
-                bat 'dotnet build --configuration Release'
+                bat 'dotnet build WebApplication1/WebApplication1.csproj --configuration Release'
             }
         }
 
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                bat 'dotnet test --no-build --verbosity normal'
+                bat 'dotnet test WebApplication1/WebApplication1.csproj --no-build --verbosity normal'
             }
         }
 
-        stage('Publish to Folder') {
+        stage('Publish') {
             steps {
-                echo 'Publishing to ./publish folder...'
-                bat 'dotnet publish -c Release -o ./publish'
+                echo 'Publishing project...'
+                bat 'dotnet publish WebApplication1/WebApplication1.csproj --configuration Release --output ./publish'
             }
         }
+    }
 
-        stage('Copy to Running Folder') {
-            steps {
-                echo 'Copying to IIS root (C:\\wwwroot\\myproject)...'
-                // Nếu cần stop IIS trước thì uncomment dòng dưới
-                // bat 'iisreset /stop'
-                bat 'xcopy "%WORKSPACE%\\publish" "C:\\wwwroot\\myproject" /E /Y /I /R'
-            }
+    post {
+        success {
+            echo '✅ Build and publish succeeded!'
         }
-
-        stage('Deploy to IIS') {
-            steps {
-                echo 'Deploying to IIS...'
-                powershell '''
-                    Import-Module WebAdministration
-
-                    if (-not (Test-Path IIS:\\Sites\\MySite)) {
-                        New-Website -Name "MySite" -Port 81 -PhysicalPath "C:\\test1-netcore" -ApplicationPool ".NET v4.5"
-                    } else {
-                        Write-Output "IIS website 'MySite' already exists."
-                    }
-
-                    Start-Website -Name "MySite"
-                '''
-            }
+        failure {
+            echo '❌ Build failed.'
         }
-
-    } // end stages
+    }
 }
